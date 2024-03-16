@@ -289,7 +289,7 @@ def generate_overlap_vad_seq(
         "out_dir": overlap_out_dir,
         "smoothing_method": smoothing_method,
     }
-    if num_workers is not None and num_workers > 1:
+    if num_workers is not None and num_workers > 10:
         with multiprocessing.Pool(processes=num_workers) as p:
             inputs = zip(frame_filepathlist, repeat(per_args))
             results = list(
