@@ -186,7 +186,7 @@ class EncDecDiarLabelModel(ModelPT, ExportableEncDecModel):
         elif self._trainer:
             rank_id = torch.device(self._trainer.global_rank)
         else:
-            rank_id = None
+            rank_id = torch.device('cuda')
 
         if model_path is not None and model_path.endswith('.nemo'):
             self.msdd._speaker_model = EncDecSpeakerLabelModel.restore_from(model_path, map_location=rank_id)
@@ -639,8 +639,10 @@ class EncDecDiarLabelModel(ModelPT, ExportableEncDecModel):
         Calculate F1 score and accuracy of the predicted sigmoid values.
 
         Returns:
-            f1_score (float): F1 score of the estimated diarized speaker label sequences.
-            simple_acc (float): Accuracy of predicted speaker labels: (total # of correct labels)/(total # of sigmoid values)
+            f1_score (float):
+                F1 score of the estimated diarized speaker label sequences.
+            simple_acc (float):
+                Accuracy of predicted speaker labels: (total # of correct labels)/(total # of sigmoid values)
         """
         f1_score = self._accuracy_test.compute()
         num_correct = torch.sum(self._accuracy_test.true.bool())
@@ -1068,6 +1070,7 @@ class NeuralDiarizer(LightningModule):
 
         _speaker_model = EncDecSpeakerLabelModel.from_config_dict(self.msdd_model.cfg.speaker_model_cfg)
         _speaker_model.load_state_dict(spk_emb_state_dict)
+        _speaker_model.cuda()
         return _speaker_model
 
     def _init_msdd_model(self, cfg: Union[DictConfig, NeuralDiarizerInferenceConfig]):
@@ -1088,10 +1091,13 @@ class NeuralDiarizer(LightningModule):
             if model_path not in get_available_model_names(EncDecDiarLabelModel):
                 logging.warning(f"requested {model_path} model name not available in pretrained models, instead")
             logging.info("Loading pretrained {} model from NGC".format(model_path))
+            logging.info("Running on device: {}".format(cfg.device))
             self.msdd_model = EncDecDiarLabelModel.from_pretrained(model_name=model_path, map_location=cfg.device)
         # Load speaker embedding model state_dict which is loaded from the MSDD checkpoint.
         if self.use_speaker_model_from_ckpt:
             self._speaker_model = self.extract_standalone_speaker_model()
+            #logging.info("Speaker model device: {}".format(self.msdd_model.cfg.speaker_model_cfg.device))
+            logging.info("Speaker model device: {}".format(self._speaker_model.device))
         else:
             self._speaker_model = None
 
